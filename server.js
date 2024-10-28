@@ -1,11 +1,11 @@
 const express = require('express');
+const path = require('path');
 const fs = require('fs');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 7580; // Use port 7580 or environment-specific port
+const PORT = process.env.PORT || 7580;
 const DATA_FILE = path.join(__dirname, 'data.json');
 
 // Middleware
@@ -24,29 +24,22 @@ app.post('/api/save', (req, res) => {
     ensureDataFileExists();
     const newItem = req.body;
 
-    // Read the existing data from the file
     fs.readFile(DATA_FILE, 'utf8', (err, data) => {
         if (err) {
-            console.error('Error reading file', err);
             return res.status(500).json({ message: 'Error reading file' });
         }
 
-        let items = [];
-        if (data) {
-            items = JSON.parse(data);
-        }
+        let items = data ? JSON.parse(data) : [];
 
-        // Check if a request with the same URL already exists
-        const duplicate = items.find(item => item.url === newItem.url);
-        if (duplicate) {
+        // Check for duplicate URLs
+        if (items.some(item => item.url === newItem.url)) {
             return res.status(400).json({ message: 'A request with this URL already exists' });
         }
 
-        // Add the new item to the list and write it to the file
+        // Save the new item
         items.push(newItem);
         fs.writeFile(DATA_FILE, JSON.stringify(items, null, 2), (err) => {
             if (err) {
-                console.error('Error writing to file', err);
                 return res.status(500).json({ message: 'Error saving data' });
             }
             res.status(200).json({ message: 'Data saved successfully' });
@@ -54,13 +47,12 @@ app.post('/api/save', (req, res) => {
     });
 });
 
-// Route to load data from the file on app initialization
+// Route to load saved APIs
 app.get('/api/load', (req, res) => {
     ensureDataFileExists();
 
     fs.readFile(DATA_FILE, 'utf8', (err, data) => {
         if (err) {
-            console.error('Error reading file', err);
             return res.status(500).json({ message: 'Error loading data' });
         }
 
@@ -69,7 +61,7 @@ app.get('/api/load', (req, res) => {
     });
 });
 
-// Route to delete an API request by URL
+// Route to delete an API by URL
 app.delete('/api/delete', (req, res) => {
     ensureDataFileExists();
 
@@ -77,7 +69,6 @@ app.delete('/api/delete', (req, res) => {
 
     fs.readFile(DATA_FILE, 'utf8', (err, data) => {
         if (err) {
-            console.error('Error reading file', err);
             return res.status(500).json({ message: 'Error reading file' });
         }
 
@@ -90,7 +81,6 @@ app.delete('/api/delete', (req, res) => {
 
         fs.writeFile(DATA_FILE, JSON.stringify(updatedItems, null, 2), (err) => {
             if (err) {
-                console.error('Error writing to file', err);
                 return res.status(500).json({ message: 'Error deleting data' });
             }
             res.status(200).json({ message: 'API request deleted successfully' });
@@ -98,7 +88,14 @@ app.delete('/api/delete', (req, res) => {
     });
 });
 
-// Start the server on port 7580
+// Serve the Angular frontend
+app.use(express.static(path.join(__dirname, 'dist/frontend')));
+
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist/frontend/index.html'));
+});
+
+// Start the server
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
